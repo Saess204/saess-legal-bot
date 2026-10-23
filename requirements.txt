@@ -1,0 +1,6 @@
+python-telegram-bot
+openai
+google-generativeai
+python-docx
+SpeechRecognition
+pydub
