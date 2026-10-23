@@ -120,7 +120,10 @@ telegram_app = None
 
 def setup_bot():
     global telegram_app
-    telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    # اصلاحیه برای دور زدن خطای نسخه پایتون در ساخت بات
+    import telegram.ext._applicationbuilder
+    telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
+    
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CallbackQueryHandler(button_handler))
     telegram_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
