@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import docx
+import asyncio
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
@@ -39,11 +40,32 @@ app_flask = Flask(__name__)
 def home():
     return "Saess Legal Bot is active and live!"
 
+# ایجاد لوپ رویداد اختصاصی برای پردازش آپدیت‌های تلگرام
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+
+telegram_app = None
+
+def setup_bot():
+    global telegram_app
+    telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
+    
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(CallbackQueryHandler(button_handler))
+    telegram_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
+    
+    # راه‌اندازی اولیه اپلیکیشن تلگرام در لوپ
+    loop.run_until_complete(telegram_app.initialize())
+    loop.run_until_complete(telegram_app.start())
+
+setup_bot()
+
 @app_flask.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST'])
 def webhook():
     json_update = request.get_json(force=True)
     update = Update.de_json(json_update, telegram_app.bot)
-    telegram_app.update_queue.put_nowait(update)
+    # پردازش ایمن آپدیت در لوپ اختصاصی
+    asyncio.run_coroutine_threadsafe(telegram_app.process_update(update), loop)
     return "OK", 200
 
 def analyze_with_ai_ensemble(input_text):
@@ -88,10 +110,9 @@ async def start(update: Update, context):
          InlineKeyboardButton("📚 سوابق", callback_data="history")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f"سلام {user.first_name} عزیز!\nبه ربات حقوقی Saess خوش آمدید. متن یا سند خود را بفرستید تا لایحه دریافت کنید.", reply_markup=reply_markup)
+    await update.message.reply_text(f"سلام {user.first_name} عزیز!\nبه ربات حقوقی Saess خوش آمدید. متن یا فایل خود را بفرستید تا لایحه دریافت کنید.", reply_markup=reply_markup)
 
 async def handle_message(update: Update, context):
-    # بررسی اینکه آیا کاربر متن فرستاده یا سند (Document / PDF)
     message = update.message
     user_text = message.text or message.caption or ""
     
@@ -123,20 +144,11 @@ async def button_handler(update: Update, context):
     elif query.data == "history":
         await query.message.reply_text("بخش سوابق جستجو فعال است.")
 
-telegram_app = None
-
-def setup_bot():
-    global telegram_app
-    import telegram.ext._applicationbuilder
-    telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
-    
-    telegram_app.add_handler(CommandHandler("start", start))
-    telegram_app.add_handler(CallbackQueryHandler(button_handler))
-    telegram_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
-
 if __name__ == '__main__':
-    setup_bot()
     port = int(os.environ.get("PORT", 10000))
     webhook_url = f"https://saess-legal-bot.onrender.com/{TELEGRAM_BOT_TOKEN}"
-    telegram_app.bot.set_webhook(url=webhook_url)
+    
+    # تنظیم خودکار وب‌هوک هنگام استارت
+    loop.run_until_complete(telegram_app.bot.set_webhook(url=webhook_url))
+    
     app_flask.run(host="0.0.0.0", port=port)
