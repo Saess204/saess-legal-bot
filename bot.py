@@ -8,99 +8,38 @@ from pypdf import PdfReader
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCO9ScNq3PJ61BO_W-k-dF1A634oibn_ds")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "") # اگر کلید دیپ سیک دارید اینجا بگذارید
 
 app = Flask(__name__)
 
-# ساخت امن اپلیکیشن تلگرام بدون خطای Updater
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
 
-def ask_gemini(prompt):
-    """تلاش اول: ارسال درخواست به گوگل جمینای"""
-    if not GEMINI_API_KEY or GEMINI_API_KEY.startswith("AIzaSyCO9ScN"):
-        return None # اگر کلید معتبر نیست رد شو
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    headers = {"Content-Type": "application/json"}
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    try:
-        res = requests.post(url, headers=headers, json=payload, timeout=20)
-        if res.status_code == 200:
-            data = res.json()
-            text = data['candidates'][0]['content']['parts'][0]['text']
-            return f"{text}\n\n🤖 **مدل پاسخگو:** Google Gemini"
-    except Exception as e:
-        print(f"Gemini Error: {e}")
-    return None
-
 def ask_openai(prompt):
-    """تلاش دوم: اگر جمینای پاسخ نداد، استفاده از ChatGPT"""
-    if not OPENAI_API_KEY:
-        return None
+    """اتصال پایدار و مستقیم به OpenAI"""
     url = "https://api.openai.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
     payload = {
         "model": "gpt-4o-mini",
         "messages": [
-            {"role": "system", "content": "تو یک مشاور و دستیار هوشمند حقوقی متبحر به نام Saess هستی که به زبان فارسی پاسخ می‌دهد."},
+            {"role": "system", "content": "تو یک مشاور حقوقی هوشمند، دقیق و متبحر به نام Saess هستی. به صورت کاملاً روان، تخصصی و پیوسته به زبان فارسی با کاربر گفتگو کن."},
             {"role": "user", "content": prompt[:4000]}
         ],
         "temperature": 0.5
     }
     try:
-        res = requests.post(url, headers=headers, json=payload, timeout=25)
-        if res.status_code == 200:
-            data = res.json()
-            text = data['choices'][0]['message']['content']
-            return f"{text}\n\n🤖 **مدل پاسخگو:** OpenAI GPT-4o-mini"
+        response = requests.post(url, headers=headers, json=payload, timeout=35)
+        if response.status_code == 200:
+            data = response.json()
+            return data['choices'][0]['message']['content']
+        else:
+            return f"⚠️ خطا در ارتباط با هوش مصنوعی (کد {response.status_code}): {response.text[:200]}"
     except Exception as e:
-        print(f"OpenAI Error: {e}")
-    return None
-
-def ask_deepseek(prompt):
-    """تلاش سوم: اگر جی‌پتی هم نبود، استفاده از DeepSeek"""
-    if not DEEPSEEK_API_KEY:
-        return None
-    url = "https://api.deepseek.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "تو یک مشاور حقوقی هوشمند به نام Saess هستی."},
-            {"role": "user", "content": prompt[:4000]}
-        ]
-    }
-    try:
-        res = requests.post(url, headers=headers, json=payload, timeout=25)
-        if res.status_code == 200:
-            data = res.json()
-            text = data['choices'][0]['message']['content']
-            return f"{text}\n\n🤖 **مدل پاسخگو:** DeepSeek"
-    except Exception as e:
-        print(f"DeepSeek Error: {e}")
-    return None
-
-def get_ai_response_chain(prompt):
-    """مدیریت هوشمند زنجیره: اول جمینای -> دوم چت‌جی‌پتی -> سوم دیپ‌سیک"""
-    print("در حال بررسی اتصال به Google Gemini...")
-    ans = ask_gemini(prompt)
-    if ans:
-        return ans
-
-    print("جمینای پاسخ نداد. در حال انتقال به OpenAI...")
-    ans = ask_openai(prompt)
-    if ans:
-        return ans
-
-    print("OpenAI پاسخ نداد. در حال انتقال به DeepSeek...")
-    ans = ask_deepseek(prompt)
-    if ans:
-        return ans
-
-    return "⚠️ متأسفانه در حال حاضر هیچ‌کدام از مدل‌های هوش مصنوعی (جمینای، چت‌جی‌پتی و دیپ‌سیک) در دسترس نیستند. لطفاً دقایقی دیگر تلاش کنید."
+        return f"⚠️ خطای سیستمی در ارتباط با OpenAI: {str(e)}"
 
 async def start_command(update: Update, context):
-    await update.message.reply_text("سلام! من **Saess** هستم؛ دستیار حقوقی هوشمند شما مجهز به سیستم چندگانه (Gemini / OpenAI / DeepSeek). سوال یا فایل PDF خود را بفرستید.")
+    await update.message.reply_text("سلام! من **Saess** هستم؛ دستیار حقوقی هوشمند شما. سوال یا متن خود را بفرستید تا به صورت چت مستقیم پاسخ دهم.")
 
 async def handle_incoming_message(update: Update, context):
     message = update.message
@@ -129,8 +68,8 @@ async def handle_incoming_message(update: Update, context):
 
     await context.bot.send_chat_action(chat_id=message.chat_id, action="typing")
     
-    # دریافت پاسخ از زنجیره هوش مصنوعی
-    ai_reply = get_ai_response_chain(text)
+    # دریافت پاسخ مستقیم از هوش مصنوعی
+    ai_reply = ask_openai(text)
     
     await message.reply_text(ai_reply)
 
@@ -143,7 +82,7 @@ loop.run_until_complete(telegram_app.initialize())
 
 @app.route("/")
 def index():
-    return "Saess Multi-AI Legal Bot is active!"
+    return "Saess Legal Chat Bot is active!"
 
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
 def webhook():
