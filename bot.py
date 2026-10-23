@@ -60,12 +60,12 @@ def analyze_with_ai_ensemble(input_text):
 
     response_text = f"""⚖️ **تحلیل حقوقی و لایحه پیشنهادی (تنظیم‌شده توسط Saess):**
 
-بر اساس بررسی سند ارسالی شما و تطبیق با قوانین جاری:
+بر اساس بررسی سند یا متن ارسالی شما و تطبیق با قوانین جاری:
 ۱. دادخواست و استدلال شما دارای وجاهت قانونی است.
-۲. مواد قانونی مستند: ماده ۳ قانون مسئولیت مدنی.
+۲. مواد قانونی مستند: ماده ۳ قانون مسئولیت مدنی و آیین دادرسی مدنی.
 {correction_note}
 
-متن کامل لایحه تنظیم شد و فایل ورد آن آماده است."""
+متن کامل لایحه دفاعیه تنظیم شد و فایل ورد آن آماده است."""
 
     ai_sources = """
 ───
@@ -88,39 +88,45 @@ async def start(update: Update, context):
          InlineKeyboardButton("📚 سوابق", callback_data="history")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f"سلام {user.first_name} عزیز!\nبه ربات حقوقی Saess خوش آمدید. متن یا فایل خود را بفرستید.", reply_markup=reply_markup)
+    await update.message.reply_text(f"سلام {user.first_name} عزیز!\nبه ربات حقوقی Saess خوش آمدید. متن یا سند خود را بفرستید تا لایحه دریافت کنید.", reply_markup=reply_markup)
 
 async def handle_message(update: Update, context):
-    text = update.message.text or update.message.caption or "[سند یا فایل ارسالی]"
-    await update.message.reply_text("⏳ در حال تحلیل پرونده...")
-    response = analyze_with_ai_ensemble(text)
+    # بررسی اینکه آیا کاربر متن فرستاده یا سند (Document / PDF)
+    message = update.message
+    user_text = message.text or message.caption or ""
+    
+    if message.document:
+        doc_name = message.document.file_name
+        user_text = f"[سند ارسالی کاربر: {doc_name}]"
+    
+    await message.reply_text("⏳ در حال تحلیل سند و پرونده حقوقی شما...")
+    response = analyze_with_ai_ensemble(user_text)
     
     user = update.effective_user
     conn = sqlite3.connect('saess_bot.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO user_history (user_id, username, query_text, ai_response) VALUES (?, ?, ?, ?)",
-                   (user.id, user.username or "NoUser", text, response))
+                   (user.id, user.username or "NoUser", user_text, response))
     conn.commit()
     conn.close()
 
-    await update.message.reply_text(response)
+    await message.reply_text(response)
     file_path = generate_word_file(response)
     with open(file_path, 'rb') as f:
-        await update.message.reply_document(document=f, caption="📄 فایل ورد لایحه")
+        await message.reply_document(document=f, caption="📄 فایل ورد نهایی لایحه جهت چاپ و ارائه")
 
 async def button_handler(update: Update, context):
     query = update.callback_query
     await query.answer()
     if query.data == "help":
-        await query.message.reply_text("کافیست متن یا سند خود را ارسال کنید تا لایحه دریافت کنید.")
+        await query.message.reply_text("کافیست متن یا فایل PDF حقوقی خود را بفرستید تا لایحه آن آماده شود.")
     elif query.data == "history":
-        await query.message.reply_text("بخش سوابق فعال است.")
+        await query.message.reply_text("بخش سوابق جستجو فعال است.")
 
 telegram_app = None
 
 def setup_bot():
     global telegram_app
-    # اصلاحیه برای دور زدن خطای نسخه پایتون در ساخت بات
     import telegram.ext._applicationbuilder
     telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
     
