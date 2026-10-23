@@ -1,8 +1,21 @@
 import os
 import sqlite3
+import threading
+import docx
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, filters
-import docx
+
+# ==================== تنظیمات وب‌سرور برای Render ====================
+app_flask = Flask(__name__)
+
+@app_flask.route('/')
+def home():
+    return "Saess Legal Bot is running live!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app_flask.run(host="0.0.0.0", port=port)
 
 # ==================== تنظیمات اولیه پایگاه داده ====================
 def init_db():
@@ -33,8 +46,10 @@ def init_db():
 init_db()
 
 # ==================== توکن ربات و APIها ====================
-# توکن ربات تلگرام خود را که از BotFather گرفته‌اید اینجا قرار دهید:
-TELEGRAM_BOT_TOKEN = "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCO9ScNq3PJ61BO_W-k-dF1A634oibn_ds")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-8f37d8da8e784cc98712531f978eb3af")
 
 # ==================== توابع هوش مصنوعی و پردازش ====================
 def analyze_with_ai_ensemble(input_text):
@@ -65,9 +80,9 @@ def analyze_with_ai_ensemble(input_text):
     ai_sources = """
 ───
 🤖 **مدل‌های هوش مصنوعی فعال در این پردازش:**
-* 🔹 **Google Gemini:** استخراج متن و تحلیل مفاد سند
-* 🔹 **DeepSeek:** استدلال منطقی و تطبیق با مواد قانونی
-* 🔹 **ChatGPT (GPT-4o):** نگارش رسمی و ادبیات قضایی
+- 🔹 **Google Gemini:** استخراج متن و تحلیل مفاد سند
+- 🔹 **DeepSeek:** استدلال منطقی و تطبیق با مواد قانونی
+- 🔹 **ChatGPT (GPT-4o):** نگارش رسمی و ادبیات قضایی
 📚 **منبع:** بانک جامع قوانین رسمی ایران
 📂 *این مشاوره در سوابق حساب کاربری شما ذخیره شد.*"""
 
@@ -156,26 +171,32 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.message.reply_text("هنوز سوابقی ثبت نشده است.")
     elif query.data == "add_rule":
-        await query.message.reply_text("برای ثبت اصلاحیه جدید، دستور را به این شکل بفرستید:\n`/add اصلاح: [اشتباه] به [درست]`")
+        await query.message.reply_text("برای ثبت اصلاحیه جدید، دستور را به این شکل بفرستید:\n`/add اشتباه درست`")
 
 async def add_correction_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
-    if len(args) < 3:
+    if len(args) < 2:
         await update.message.reply_text("فرمت اشتباه است. مثال:\n/add اشتباه درست")
         return
     
     wrong = args[0]
-    correct = args[2]
+    correct = args[1]
     
     conn = sqlite3.connect('saess_bot.db')
     cursor = conn.cursor()
-    cursor.execute("SELECT FROM legal_corrections (wrong_pattern, correct_rule) VALUES (?, ?)", (wrong, correct))
+    cursor.execute("INSERT INTO legal_corrections (wrong_pattern, correct_rule) VALUES (?, ?)", (wrong, correct))
     conn.commit()
     conn.close()
     
-    await update.message.reply_text(f"✅ اصلاحیه جدید با موفقیت در حافظه ربات Saess ثبت شد.")
+    await update.message.reply_text("✅ اصلاحیه جدید با موفقیت در حافظه ربات Saess ثبت شد.")
 
 def main():
+    # اجرای وب‌سرور Flask در یک نخ (Thread) جداگانه برای تأمین پورت Render
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    # راه‌اندازی ربات تلگرام
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
