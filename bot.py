@@ -34,7 +34,7 @@ init_db()
 
 # ==================== توکن ربات و APIها ====================
 # توکن ربات تلگرام خود را که از BotFather گرفته‌اید اینجا قرار دهید:
-TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE"
+TELEGRAM_BOT_TOKEN = "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA"
 
 # ==================== توابع هوش مصنوعی و پردازش ====================
 def analyze_with_ai_ensemble(input_text):
