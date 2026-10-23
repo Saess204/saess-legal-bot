@@ -5,13 +5,9 @@ from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
-# تنظیمات توکن‌ها و کلیدها
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyCO9ScNq3PJ61BO_W-k-dF1A634oibn_ds")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "sk-8f37d8da8e784cc98712531f978eb3af")
 
-# راه‌اندازی دیتابیس
+# دیتابیس
 def init_db():
     conn = sqlite3.connect('saess_bot.db')
     cursor = conn.cursor()
@@ -37,22 +33,19 @@ def init_db():
 
 init_db()
 
-# ساخت اپلیکیشن Flask برای پاسخ به پورت رندر
 app_flask = Flask(__name__)
 
 @app_flask.route('/')
 def home():
-    return "Saess Legal Bot is active and running!"
+    return "Saess Legal Bot is active and live!"
 
 @app_flask.route(f'/{TELEGRAM_BOT_TOKEN}', methods=['POST'])
 def webhook():
-    # دریافت آپدیت‌ها از تلگرام به صورت وب‌هوک (بدون تداخل پورت)
     json_update = request.get_json(force=True)
     update = Update.de_json(json_update, telegram_app.bot)
     telegram_app.update_queue.put_nowait(update)
     return "OK", 200
 
-# توابع هوش مصنوعی و ساخت فایل ورد
 def analyze_with_ai_ensemble(input_text):
     conn = sqlite3.connect('saess_bot.db')
     cursor = conn.cursor()
@@ -63,7 +56,7 @@ def analyze_with_ai_ensemble(input_text):
     correction_note = ""
     for wrong, correct in corrections:
         if wrong in input_text:
-            correction_note += f"\n[نکته اصلاحی ثبت‌شده: بجای '{wrong}' از '{correct}' استفاده شود.]"
+            correction_note += f"\n[نکته اصلاحی: بجای '{wrong}' از '{correct}' استفاده شود.]"
 
     response_text = f"""⚖️ **تحلیل حقوقی و لایحه پیشنهادی (تنظیم‌شده توسط Saess):**
 
@@ -88,7 +81,6 @@ def generate_word_file(text_content, filename="Saess_Legal_Draft.docx"):
     doc.save(filename)
     return filename
 
-# هندلرهای تلگرام
 async def start(update: Update, context):
     user = update.effective_user
     keyboard = [
@@ -124,7 +116,6 @@ async def button_handler(update: Update, context):
     elif query.data == "history":
         await query.message.reply_text("بخش سوابق فعال است.")
 
-# تنظیم اپلیکیشن تلگرام
 telegram_app = None
 
 def setup_bot():
@@ -137,9 +128,6 @@ def setup_bot():
 if __name__ == '__main__':
     setup_bot()
     port = int(os.environ.get("PORT", 10000))
-    # تنظیم وب‌هوک خودکار روی رندر
     webhook_url = f"https://saess-legal-bot.onrender.com/{TELEGRAM_BOT_TOKEN}"
     telegram_app.bot.set_webhook(url=webhook_url)
-    
-    # اجرای وب‌سرور Flask برای پاسخ به پورت رندر
     app_flask.run(host="0.0.0.0", port=port)
