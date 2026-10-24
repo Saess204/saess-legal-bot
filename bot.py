@@ -8,7 +8,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from pypdf import PdfReader
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA")
-# قرارگیری مستقیم کلید برای رفع کامل مشکل عدم دسترسی به پنل رندر
+# قرارگیری قطعی و مستقیم کلید جدید شما جهت رفع خطای 401
 OPENAI_API_KEY = "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"
 
 app = Flask(__name__)
@@ -49,9 +49,9 @@ def ask_legal_ai(messages_list):
             data = response.json()
             return data['choices'][0]['message']['content']
         else:
-            return f"⚠️ خطا در پردازش هوش مصنوعی (کد {response.status_code}):\n{response.text[:200]}"
+            return f"⚠️ خطای OpenAI (کد {response.status_code}):\n{response.text}"
     except Exception as e:
-        return f"⚠️ خطای سیستمی در ارتباط با مرکز تحلیل حقوقی: {str(e)}"
+        return f"⚠️ خطای ارتباطی: {str(e)}"
 
 async def start_command(update: Update, context):
     await update.message.reply_text(
