@@ -8,8 +8,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from pypdf import PdfReader
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA")
-# Henter nøkkelen sikkert fra Render sine miljøvariabler
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# دریافت کلید از محیط امن سرور جهت جلوگیری از ابطال خودکار توسط OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 
 app = Flask(__name__)
 
@@ -17,7 +17,14 @@ telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).updater(None).bui
 
 LEGAL_SYSTEM_PROMPT = """
 تو یک وکیل پایه یک دادگستری، مشاور حقوقی زبده و دستیار هوشمند به نام "Saess" هستی.
-وظیفه تو ارائه مشاوره تخصصی، تحلیل عمیق مدارک، تشخیص استراتژی‌های دفاعی و ارائه راهکارهای عملی حقوقی بر اساس قوانین جاری ایران است.
+وظیفه تو ارائه مشاوره تخصصی، تحلیل عمیق مدارک، تشخیص استراتژی‌های دفاعی و ارائه راهکارهای عملی حقوقی بر اساس قوانین جاری ایران (آیین دادرسی مدنی، کیفری، قانون مدنی، مجازات اسلامی و تجارت) است.
+
+هنگام پاسخگویی به کاربر نکات زیر را رعایت کن:
+۱. مانند یک وکیل با تجربه و تحلیل‌گر فکر کن؛ ابهامات پرونده را مشخص کن و نقاط ضعف و قوت طرفین را تحلیل نما.
+۲. مواد قانونی مرتبط و استدلال‌های حقوقی محکم ارائه بده.
+۳. راهکارهای گام‌به‌گام و عملی (نحوه تنظیم دادخواست، لایحه، اظهارنامه یا اقدامات پیشگیرانه) پیشنهاد بده.
+۴. لحن گفتگو باید کاملاً محترمانه، تخصصی، اطمینان‌بخش و روان باشد.
+۵. اگر عکس سند یا فایل PDF ارسال شد، تمام جزئیات متن، شروط قرارداد و مفاد آن را با دقت آنالیز کن.
 """
 
 def encode_image(image_path):
@@ -26,11 +33,11 @@ def encode_image(image_path):
 
 def ask_legal_ai(messages_list):
     if not OPENAI_API_KEY:
-        return "⚠️ API-nøkkelen (OPENAI_API_KEY) er ikke konfigurert i Render sin Environment."
+        return "⚠️ کلید OPENAI_API_KEY در تنظیمات Environment رندر ثبت نشده است."
         
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY.strip()}",
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -45,9 +52,9 @@ def ask_legal_ai(messages_list):
             data = response.json()
             return data['choices'][0]['message']['content']
         else:
-            return f"⚠️ OpenAI Feil (Kode {response.status_code}):\n{response.text}"
+            return f"⚠️ خطای OpenAI (کد {response.status_code}):\n{response.text}"
     except Exception as e:
-        return f"⚠️ Tilkoblingsfeil: {str(e)}"
+        return f"⚠️ خطای ارتباطی: {str(e)}"
 
 async def start_command(update: Update, context):
     await update.message.reply_text(
