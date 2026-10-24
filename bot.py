@@ -8,8 +8,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from pypdf import PdfReader
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8908467332:AAHC_ALFUDvLtdElZi6_lMm6ppA5CvjMWmA")
-# قرارگیری قطعی و مستقیم کلید جدید شما جهت رفع خطای 401
-OPENAI_API_KEY = "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"
+# استفاده از کلید جدید و معتبر شما
+OPENAI_API_KEY = "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"
 
 app = Flask(__name__)
 
